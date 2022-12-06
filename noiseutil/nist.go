@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/flynn/noise"
+	"github.com/google/go-tpm/tpm2"
 )
 
 // DHP256 is the NIST P-256 ECDH function
@@ -31,6 +32,7 @@ func newNISTCurve(name string, curve elliptic.Curve) nistCurve {
 }
 
 func (c nistCurve) GenerateKeypair(rng io.Reader) (noise.DHKey, error) {
+
 	if rng == nil {
 		rng = rand.Reader
 	}
@@ -43,17 +45,60 @@ func (c nistCurve) GenerateKeypair(rng io.Reader) (noise.DHKey, error) {
 }
 
 func (c nistCurve) DH(privkey, pubkey []byte) ([]byte, error) {
-	// based on stdlib crypto/tls/key_schedule.go
-	// - https://github.com/golang/go/blob/go1.19/src/crypto/tls/key_schedule.go#L167-L178
-	// Unmarshal also checks whether the given point is on the curve.
-	x, y := elliptic.Unmarshal(c.curve, pubkey)
-	if x == nil {
-		return nil, errors.New("unable to unmarshal pubkey")
-	}
+	// determine what type of private key based on key length
+	switch {
+	case len(privkey) > 65:
+		return nil, errors.New("no support for Secure Enclave")
+	case len(privkey) == 65:
 
-	xShared, _ := c.curve.ScalarMult(x, y, privkey)
-	sharedKey := make([]byte, c.dhLen)
-	return xShared.FillBytes(sharedKey), nil
+		defaultPassword := "\x01\x02\x03\x04"
+
+		rw, err := tpm2.OpenTPM()
+		if err != nil {
+			return nil, errors.New("unable to open TPM")
+		}
+
+		defer rw.Close()
+
+		// Generate a key in the TPM.
+		// This uses the default P256 key template, and will get the same key each time this operation is done
+		handle, _, err := tpm2.CreatePrimary(rw, tpm2.HandleOwner, tpm2.PCRSelection{}, "", defaultPassword, tpm2.Public{
+			Type:       tpm2.AlgECC,
+			NameAlg:    tpm2.AlgSHA256,
+			Attributes: tpm2.FlagDecrypt | tpm2.FlagSensitiveDataOrigin | tpm2.FlagUserWithAuth,
+			ECCParameters: &tpm2.ECCParams{
+				CurveID: tpm2.CurveNISTP256,
+			},
+		})
+		if err != nil {
+			return nil, errors.New("unable to recreate TPM key")
+		}
+
+		defer tpm2.FlushContext(rw, handle)
+
+		x, y := elliptic.Unmarshal(c.curve, pubkey)
+		z, err := tpm2.ECDHZGen(rw, handle, defaultPassword, tpm2.ECPoint{
+			XRaw: x.Bytes(),
+			YRaw: y.Bytes(),
+		})
+		if err != nil || z == nil {
+			return nil, errors.New("unable to perform key exchange")
+		}
+
+		return z.XRaw, nil
+	default:
+		// based on stdlib crypto/tls/key_schedule.go
+		// - https://github.com/golang/go/blob/go1.19/src/crypto/tls/key_schedule.go#L167-L178
+		// Unmarshal also checks whether the given point is on the curve.
+		x, y := elliptic.Unmarshal(c.curve, pubkey)
+		if x == nil {
+			return nil, errors.New("unable to unmarshal pubkey")
+		}
+
+		xShared, _ := c.curve.ScalarMult(x, y, privkey)
+		sharedKey := make([]byte, c.dhLen)
+		return xShared.FillBytes(sharedKey), nil
+	}
 }
 
 func (c nistCurve) DHLen() int {

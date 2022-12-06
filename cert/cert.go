@@ -29,9 +29,10 @@ const (
 	Ed25519PrivateKeyBanner = "NEBULA ED25519 PRIVATE KEY"
 	Ed25519PublicKeyBanner  = "NEBULA ED25519 PUBLIC KEY"
 
-	P256PrivateKeyBanner      = "NEBULA P256 PRIVATE KEY"
-	P256PublicKeyBanner       = "NEBULA P256 PUBLIC KEY"
-	ECDSAP256PrivateKeyBanner = "NEBULA ECDSA P256 PRIVATE KEY"
+	P256PrivateKeyBanner         = "NEBULA P256 PRIVATE KEY"
+	P256PrivateKeyHardwareBanner = "Nebula P256 PRIVATE HARDWARE KEY"
+	P256PublicKeyBanner          = "NEBULA P256 PUBLIC KEY"
+	ECDSAP256PrivateKeyBanner    = "NEBULA ECDSA P256 PRIVATE KEY"
 )
 
 type NebulaCertificate struct {

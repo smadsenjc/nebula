@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/go-tpm/tpm2"
 	"github.com/skip2/go-qrcode"
 	"github.com/slackhq/nebula/cert"
 	"golang.org/x/crypto/curve25519"
@@ -269,6 +270,45 @@ func p256Keypair() ([]byte, []byte) {
 	}
 	pubkey := elliptic.Marshal(elliptic.P256(), x, y)
 	return pubkey, privkey
+}
+
+func tpmP256Keypair() ([]byte, []byte) {
+	rw, err := tpm2.OpenTPM()
+
+	if err != nil {
+		panic("err")
+	}
+	defer rw.Close()
+
+	// Generate a key in the TPM.
+	// This uses the default P256 key template, and will get the same key each time this operation is done
+	handle, _, err := tpm2.CreatePrimary(rw, tpm2.HandleOwner, tpm2.PCRSelection{}, "", "\x01\x02\x03\x04", tpm2.Public{
+		Type:       tpm2.AlgECC,
+		NameAlg:    tpm2.AlgSHA256,
+		Attributes: tpm2.FlagDecrypt | tpm2.FlagSensitiveDataOrigin | tpm2.FlagUserWithAuth,
+		ECCParameters: &tpm2.ECCParams{
+			CurveID: tpm2.CurveNISTP256,
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	defer tpm2.FlushContext(rw, handle)
+
+	// Read the public key from the TPM.
+	pubKey, _, _, err := tpm2.ReadPublic(rw, handle)
+	if err != nil {
+		panic(err)
+	}
+
+	// marshal x, y into x9.62 format
+	x962pubKey := make([]byte, 0)
+	x962pubKey = append(x962pubKey[:], 0x04)
+	x962pubKey = append(x962pubKey[:], pubKey.ECCParameters.Point.XRaw...)
+	x962pubKey = append(x962pubKey[:], pubKey.ECCParameters.Point.YRaw...)
+
+	// since the private key is the default, we don't actually need to store it in any way, so we'll just send back the public
+	return x962pubKey, x962pubKey
 }
 
 func signSummary() string {
