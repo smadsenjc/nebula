@@ -15,7 +15,8 @@ type keygenFlags struct {
 	outKeyPath *string
 	outPubPath *string
 
-	curve *string
+	curve    *string
+	hardware *string
 }
 
 func newKeygenFlags() *keygenFlags {
@@ -24,6 +25,7 @@ func newKeygenFlags() *keygenFlags {
 	cf.outPubPath = cf.set.String("out-pub", "", "Required: path to write the public key to")
 	cf.outKeyPath = cf.set.String("out-key", "", "Required: path to write the private key to")
 	cf.curve = cf.set.String("curve", "25519", "ECDH Curve (25519, P256)")
+	cf.hardware = cf.set.String("hardware", "none", "Use hardware encryption (none, tpm, se)")
 	return &cf
 }
 
@@ -48,8 +50,15 @@ func keygen(args []string, out io.Writer, errOut io.Writer) error {
 		pub, rawPriv = x25519Keypair()
 		curve = cert.Curve_CURVE25519
 	case "P256":
-		pub, rawPriv = p256Keypair()
-		curve = cert.Curve_P256
+		switch *cf.hardware {
+		case "tpm":
+			pub, rawPriv = tpmP256Keypair()
+			curve = cert.Curve_P256
+		case "se":
+		default:
+			pub, rawPriv = p256Keypair()
+			curve = cert.Curve_P256
+		}
 	default:
 		return fmt.Errorf("invalid curve: %s", *cf.curve)
 	}
