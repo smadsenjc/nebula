@@ -4,6 +4,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"io"
 
 	"github.com/flynn/noise"
@@ -46,6 +47,10 @@ func (c nistCurve) GenerateKeypair(rng io.Reader) (noise.DHKey, error) {
 
 func (c nistCurve) DH(privkey, pubkey []byte) ([]byte, error) {
 	// determine what type of private key based on key length
+
+	fmt.Println("Key length:")
+	fmt.Println(len(privkey))
+
 	switch {
 	case len(privkey) > 65:
 		return nil, errors.New("no support for Secure Enclave")

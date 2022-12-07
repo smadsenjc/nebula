@@ -30,7 +30,7 @@ const (
 	Ed25519PublicKeyBanner  = "NEBULA ED25519 PUBLIC KEY"
 
 	P256PrivateKeyBanner         = "NEBULA P256 PRIVATE KEY"
-	P256PrivateKeyHardwareBanner = "Nebula P256 PRIVATE HARDWARE KEY"
+	P256PrivateKeyHardwareBanner = "NEBULA P256 PRIVATE HARDWARE KEY"
 	P256PublicKeyBanner          = "NEBULA P256 PUBLIC KEY"
 	ECDSAP256PrivateKeyBanner    = "NEBULA ECDSA P256 PRIVATE KEY"
 )
@@ -190,6 +190,9 @@ func UnmarshalPrivateKey(b []byte) ([]byte, []byte, Curve, error) {
 	case P256PrivateKeyBanner:
 		expectedLen = 32
 		curve = Curve_P256
+	case P256PrivateKeyHardwareBanner:
+		expectedLen = 65
+		curve = Curve_P256tpm
 	default:
 		return nil, r, 0, fmt.Errorf("bytes did not contain a proper nebula private key banner")
 	}
@@ -492,6 +495,10 @@ func (nc *NebulaCertificate) VerifyPrivateKey(curve Curve, key []byte) error {
 			if !bytes.Equal(pub, nc.Details.PublicKey) {
 				return fmt.Errorf("public key in cert and private key supplied don't match")
 			}
+		case Curve_P256tpm:
+			if bytes.Compare(nc.Details.PublicKey, key) != 0 {
+				return fmt.Errorf("public key and private tpm-based key don't match")
+			}
 		default:
 			return fmt.Errorf("invalid curve: %s", curve)
 		}
@@ -509,6 +516,8 @@ func (nc *NebulaCertificate) VerifyPrivateKey(curve Curve, key []byte) error {
 	case Curve_P256:
 		x, y := elliptic.P256().ScalarBaseMult(key)
 		pub = elliptic.Marshal(elliptic.P256(), x, y)
+	case Curve_P256tpm:
+		pub = key
 	default:
 		return fmt.Errorf("invalid curve: %s", curve)
 	}

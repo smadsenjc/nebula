@@ -11,3 +11,10 @@
 /build
 /*.tar.gz
 /e2e/mermaid/
+/host.key
+/host.crt
+/ca.crt
+/config.yaml
+/host.pub
+/nebula-cert.exe
+/nebula.exe

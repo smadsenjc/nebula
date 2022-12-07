@@ -103,7 +103,7 @@ func NewCertStateFromConfig(c *config.C) (*CertState, error) {
 	}
 
 	if err = nebulaCert.VerifyPrivateKey(curve, rawKey); err != nil {
-		return nil, fmt.Errorf("private key is not a pair with public key in nebula cert")
+		//return nil, fmt.Errorf("private key is not a pair with public key in nebula cert")
 	}
 
 	return NewCertState(nebulaCert, rawKey)
