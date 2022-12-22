@@ -31,6 +31,7 @@ const (
 
 	P256PrivateKeyBanner         = "NEBULA P256 PRIVATE KEY"
 	P256PrivateKeyHardwareBanner = "NEBULA P256 PRIVATE HARDWARE KEY"
+	P256PrivateKeySEBanner       = "NEBULA P256 PRIVATE SECUREENCLAVE KEY"
 	P256PublicKeyBanner          = "NEBULA P256 PUBLIC KEY"
 	ECDSAP256PrivateKeyBanner    = "NEBULA ECDSA P256 PRIVATE KEY"
 )
@@ -150,6 +151,8 @@ func MarshalPrivateKey(curve Curve, b []byte) []byte {
 		return pem.EncodeToMemory(&pem.Block{Type: X25519PrivateKeyBanner, Bytes: b})
 	case Curve_P256:
 		return pem.EncodeToMemory(&pem.Block{Type: P256PrivateKeyBanner, Bytes: b})
+	case Curve_P256se:
+		return pem.EncodeToMemory(&pem.Block{Type: P256PrivateKeySEBanner, Bytes: b})
 	default:
 		return nil
 	}
@@ -193,6 +196,9 @@ func UnmarshalPrivateKey(b []byte) ([]byte, []byte, Curve, error) {
 	case P256PrivateKeyHardwareBanner:
 		expectedLen = 65
 		curve = Curve_P256tpm
+	case P256PrivateKeySEBanner:
+		expectedLen = 284
+		curve = Curve_P256se
 	default:
 		return nil, r, 0, fmt.Errorf("bytes did not contain a proper nebula private key banner")
 	}
@@ -263,7 +269,7 @@ func MarshalPublicKey(curve Curve, b []byte) []byte {
 	switch curve {
 	case Curve_CURVE25519:
 		return pem.EncodeToMemory(&pem.Block{Type: X25519PublicKeyBanner, Bytes: b})
-	case Curve_P256:
+	case Curve_P256, Curve_P256se:
 		return pem.EncodeToMemory(&pem.Block{Type: P256PublicKeyBanner, Bytes: b})
 	default:
 		return nil
@@ -495,7 +501,7 @@ func (nc *NebulaCertificate) VerifyPrivateKey(curve Curve, key []byte) error {
 			if !bytes.Equal(pub, nc.Details.PublicKey) {
 				return fmt.Errorf("public key in cert and private key supplied don't match")
 			}
-		case Curve_P256tpm:
+		case Curve_P256tpm, Curve_P256se:
 			if bytes.Compare(nc.Details.PublicKey, key) != 0 {
 				return fmt.Errorf("public key and private tpm-based key don't match")
 			}
@@ -516,7 +522,7 @@ func (nc *NebulaCertificate) VerifyPrivateKey(curve Curve, key []byte) error {
 	case Curve_P256:
 		x, y := elliptic.P256().ScalarBaseMult(key)
 		pub = elliptic.Marshal(elliptic.P256(), x, y)
-	case Curve_P256tpm:
+	case Curve_P256tpm, Curve_P256se:
 		pub = key
 	default:
 		return fmt.Errorf("invalid curve: %s", curve)

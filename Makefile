@@ -2,8 +2,6 @@ GOMINVERSION = 1.18
 NEBULA_CMD_PATH = "./cmd/nebula"
 GO111MODULE = on
 export GO111MODULE
-CGO_ENABLED = 0
-export CGO_ENABLED
 
 # Set up OS specific bits
 ifeq ($(OS),Windows_NT)
@@ -88,6 +86,9 @@ bin-windows-arm64: build/windows-arm64/nebula.exe build/windows-arm64/nebula-cer
 bin-darwin: build/darwin-amd64/nebula build/darwin-amd64/nebula-cert
 	mv $? .
 
+bin-darwin-arm64: build/darwin-arm64/nebula build/darwin-arm64/nebula-cert
+	mv $? .
+
 bin-freebsd: build/freebsd-amd64/nebula build/freebsd-amd64/nebula-cert
 	mv $? .
 
@@ -104,6 +105,8 @@ build/linux-mips-%: GOENV += GOMIPS=$(word 3, $(subst -, ,$*))
 
 # Build an extra small binary for mips-softfloat
 build/linux-mips-softfloat/%: LDFLAGS += -s -w
+
+build/darwin-%: lib/libSEP256.dylib
 
 build/%/nebula: .FORCE
 	GOOS=$(firstword $(subst -, , $*)) \
@@ -126,6 +129,9 @@ build/nebula-%.tar.gz: build/%/nebula build/%/nebula-cert
 
 build/nebula-%.zip: build/%/nebula.exe build/%/nebula-cert.exe
 	cd build/$* && zip ../nebula-$*.zip nebula.exe nebula-cert.exe
+
+lib/libSEP256.dylib: .FORCE
+	make -C lib
 
 vet:
 	go vet -v ./...

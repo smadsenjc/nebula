@@ -55,6 +55,8 @@ func keygen(args []string, out io.Writer, errOut io.Writer) error {
 			pub, rawPriv = tpmP256Keypair()
 			curve = cert.Curve_P256
 		case "se":
+			pub, rawPriv = seP256Keypair()
+			curve = cert.Curve_P256se
 		default:
 			pub, rawPriv = p256Keypair()
 			curve = cert.Curve_P256
