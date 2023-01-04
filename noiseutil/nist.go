@@ -1,5 +1,8 @@
 package noiseutil
 
+// #cgo LDFLAGS: -L${SRCDIR}/../lib -lSEP256
+// #include "../lib/SEP256.h"
+import "C"
 import (
 	"crypto/elliptic"
 	"crypto/rand"
@@ -53,7 +56,25 @@ func (c nistCurve) DH(privkey, pubkey []byte) ([]byte, error) {
 
 	switch {
 	case len(privkey) > 65:
-		return nil, errors.New("no support for Secure Enclave")
+		private := make([]C.char, len(privkey))
+		for i := 0; i < len(privkey); i++ {
+			private[i] = (C.char)(privkey[i])
+		}
+		public := make([]C.char, len(pubkey))
+		for i := 0; i < len(pubkey); i++ {
+			public[i] = (C.char)(pubkey[i])
+		}
+		secretLength := C.int(64)
+		secretChars := make([]C.char, secretLength)
+		result := C.SEP256KeyAgreement(&private[0], (C.int)(len(privkey)), &public[0], (C.int)(len(pubkey)), &secretChars[0], &secretLength)
+		if !result {
+			return nil, errors.New("no support for Secure Enclave")
+		}
+		secret := make([]byte, secretLength)
+		for i := 0; i < (int)(secretLength); i++ {
+			secret[i] = (byte)(secretChars[i])
+		}
+		return secret, nil
 	case len(privkey) == 65:
 
 		defaultPassword := "\x01\x02\x03\x04"
